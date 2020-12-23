@@ -33,9 +33,6 @@ classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship'
 
 # 이미지를 보여주기 위한 함수
 def imshow(img, labels):
-    # xlabels = []
-    # for i in range(len(labels)):
-    #     xlabels.append(classes[labels[i]])
     img = img / 2 + 0.5     # unnormalize
     npimg = img.numpy()
     row, _, __, ___ = img.size()
@@ -80,82 +77,54 @@ class Net(nn.Module):
 # net = Net()
 net = Net().to(device)
 
+n_epoch = 100
+model_name = 'cifar10_classifier'
+path = './'+model_name+'_'+'model.pt'
+
+# set up the optimizer
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+optimizer = torch.optim.Adam(net.parameters(), lr=0.001)
+scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 20, 0.5)
 
-for epoch in range(2):   # 데이터셋을 수차례 반복합니다.
+for epoch in range(1, n_epoch + 1):
+    print("epoch: [%d/%d]" % (epoch, n_epoch))
 
-    running_loss = 0.0
-    for i, data in enumerate(trainloader, 0):
-        # [inputs, labels]의 목록인 data로부터 입력을 받은 후;
-        # inputs, labels = data
-        inputs, labels = data[0].to(device), data[1].to(device)
+    net.train()
+
+    for data, label in tqdm(trainloader):
+        x = data.to(device)
+        gt = label.to(device)
+
+        # 순전파 + 역전파 + 최적화를 한 후
+        outputs = net(x)
+        loss = criterion(outputs, gt)
 
         # 변화도(Gradient) 매개변수를 0으로 만들고
         optimizer.zero_grad()
-
-        # 순전파 + 역전파 + 최적화를 한 후
-        outputs = net(inputs)
-        loss = criterion(outputs, labels)
         loss.backward()
         optimizer.step()
 
-        # 통계를 출력합니다.
-        running_loss += loss.item()
-        if i % 2000 == 1999:    # print every 2000 mini-batches
-            print('[%d, %5d] loss: %.3f' %(epoch + 1, i + 1, running_loss / 2000))
-            running_loss = 0.0
+    torch.save(net.state_dict(), path)
 
+    correct = 0
+    total = 0
+    count = 0
+
+    net.eval()
+    for data, label in tqdm(trainloader):
+        x = data.to(device)
+        gt = label.to(device)
+
+        # 순전파 + 역전파 + 최적화를 한 후
+        outputs = net(x)
+        loss = criterion(outputs, gt)
+
+        predicted = torch.argmax(outputs, dim=1)
+        total += label.size(0)
+        correct += (predicted == gt).sum().item()
+
+    print("LOSS: {}".format(loss.item()))
+    print("Validating Accuracy of the model {} %".format(100 * correct / total))
+
+    scheduler.step()
 print('Finished Training')
-
-# n_epoch = 100
-# model_name = 'cifar10_classifier'
-# path = './'+model_name+'_'+'model.pt'
-#
-# # set up the optimizer
-# criterion = nn.CrossEntropyLoss()
-# optimizer = torch.optim.Adam(net.parameters(), lr=0.001)
-# scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 20, 0.5)
-#
-# for epoch in range(1, n_epoch + 1):
-#     print("epoch: [%d/%d]" % (epoch, n_epoch))
-#
-#     net.train()
-#
-#     for data, label in tqdm(trainloader):
-#         x = data.to(device)
-#         gt = label.to(device)
-#
-#         # 순전파 + 역전파 + 최적화를 한 후
-#         outputs = net(x)
-#         loss = criterion(outputs, gt)
-#
-#         # 변화도(Gradient) 매개변수를 0으로 만들고
-#         optimizer.zero_grad()
-#         loss.backward()
-#         optimizer.step()
-#
-#     torch.save(net.state_dict(), path)
-#
-#     correct = 0
-#     total = 0
-#     count = 0
-#
-#     net.eval()
-#     for data, label in tqdm(trainloader):
-#         x = data.to(device)
-#         gt = label.to(device)
-#
-#         # 순전파 + 역전파 + 최적화를 한 후
-#         outputs = net(x)
-#         loss = criterion(outputs, gt)
-#
-#         predicted = torch.argmax(outputs, dim=1)
-#         total += label.size(0)
-#         correct += (predicted == gt).sum().item()
-#
-#     print("LOSS: {}".format(loss.item()))
-#     print("Validating Accuracy of the model {} %".format(100 * correct / total))
-#
-#     scheduler.step()
-# print('Finished Training')
